@@ -16,6 +16,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COURSES, HUB_BASE } from './courses';
 
 const LAST_KEY = '@examhub:lastCourse';
+const ONBOARD_KEY = '@examhub:onboarded';
+
+const ONBOARD_STEPS = [
+  {
+    title: 'Welcome to Exam Prep Hub',
+    text: '21 free exam courses — UPSC to PTE. No sign-up, no fees, forever.',
+  },
+  {
+    title: 'Pick your course',
+    text: 'Search or browse the picker. Each card opens that course\u2019s full study hub.',
+  },
+  {
+    title: 'Always fresh',
+    text: 'Course pages load live and update twice daily — no app update needed. Offline pages retry with one tap.',
+  },
+];
 
 function CourseCard({ course, onOpen }) {
   return (
@@ -41,6 +57,8 @@ export default function App() {
   const [loadError, setLoadError] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastVisited, setLastVisited] = useState(null);
+  const [onboarded, setOnboarded] = useState(true);
+  const [obStep, setObStep] = useState(0);
   const webviewRef = useRef(null);
 
   useEffect(() => {
@@ -49,7 +67,17 @@ export default function App() {
         if (id) setLastVisited(COURSES.find((c) => c.id === id) || null);
       })
       .catch(() => {});
+    AsyncStorage.getItem(ONBOARD_KEY)
+      .then((v) => {
+        if (!v) setOnboarded(false);
+      })
+      .catch(() => {});
   }, []);
+
+  const finishOnboarding = () => {
+    setOnboarded(true);
+    AsyncStorage.setItem(ONBOARD_KEY, '1').catch(() => {});
+  };
 
   const openCourse = (c) => {
     setCourse(c);
@@ -142,6 +170,33 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      {!onboarded && (
+        <View style={styles.obOverlay}>
+          <View style={styles.obCard}>
+            <Text style={styles.obStep}>
+              {obStep + 1} of {ONBOARD_STEPS.length}
+            </Text>
+            <Text style={styles.obTitle}>{ONBOARD_STEPS[obStep].title}</Text>
+            <Text style={styles.obText}>{ONBOARD_STEPS[obStep].text}</Text>
+            <View style={styles.obRow}>
+              <TouchableOpacity onPress={finishOnboarding}>
+                <Text style={styles.obSkip}>Skip</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.obNext}
+                onPress={() => {
+                  if (obStep + 1 >= ONBOARD_STEPS.length) finishOnboarding();
+                  else setObStep((s) => s + 1);
+                }}
+              >
+                <Text style={styles.obNextText}>
+                  {obStep + 1 >= ONBOARD_STEPS.length ? 'Start studying →' : 'Next →'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       <View style={styles.homeHeader}>
         <Text style={styles.appTitle}>Exam Prep Hub</Text>
         <Text style={styles.appSubtitle}>21 courses. Everything free.</Text>
@@ -264,4 +319,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   retryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  obOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30,27,75,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    padding: 28,
+  },
+  obCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 26, width: '100%' },
+  obStep: { fontSize: 12, fontWeight: '700', color: '#6366F1' },
+  obTitle: { fontSize: 22, fontWeight: '800', color: '#1E1B4B', marginTop: 6 },
+  obText: { fontSize: 15, color: '#64748B', marginTop: 10, lineHeight: 22 },
+  obRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 22 },
+  obSkip: { fontSize: 15, color: '#94A3B8', fontWeight: '600' },
+  obNext: { backgroundColor: '#6366F1', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
+  obNextText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
 });
